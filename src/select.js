@@ -167,8 +167,10 @@
     var ctrl = this;
 
     var EMPTY_SEARCH = '';
+    var scrollFlag = false;  //marks if the 'mouseover' event is triggered by the _ensureHighlightVisible function call which controls the scrolling. stopPropagation if so
 
-    ctrl.placeholder = undefined;
+
+      ctrl.placeholder = undefined;
     ctrl.search = EMPTY_SEARCH;
     ctrl.activeIndex = 0;
     ctrl.activeMatchIndex = -1;
@@ -195,6 +197,8 @@
     };
 
     var _searchInput = $element.querySelectorAll('input.ui-select-search');
+    var dropdownEle = _searchInput[0].parentNode;
+
     if (_searchInput.length !== 1) {
       throw uiSelectMinErr('searchInput', "Expected 1 input.ui-select-search but got '{0}'.", _searchInput.length);
     }
@@ -787,17 +791,26 @@
       }
     });
 
-    _searchInput.on('tagged', function() {
-      $timeout(function() {
+    _searchInput.on('tagged', function () {
+      $timeout(function () {
         _resetSearchInput();
       });
     });
 
-    _searchInput.on('blur', function() {
-      $timeout(function() {
+    _searchInput.on('blur', function () {
+      $timeout(function () {
         ctrl.activeMatchIndex = -1;
       });
     });
+
+    // capture the mouseover event before it propagates to child nodes
+    dropdownEle.addEventListener('mouseover', function (e) {
+      if (scrollFlag) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      scrollFlag = false;
+    }, true);
 
     function _findCaseInsensitiveDupe(arr) {
       if ( arr === undefined || ctrl.search === undefined ) {
@@ -854,8 +867,10 @@
       var height = container[0].offsetHeight;
 
       if (posY > height) {
+        scrollFlag = true;
         container[0].scrollTop += posY - height;
       } else if (posY < highlighted.clientHeight) {
+        scrollFlag = true;
         if (ctrl.isGrouped && ctrl.activeIndex === 0)
           container[0].scrollTop = 0; //To make group header visible when going all the way up
         else
@@ -1235,7 +1250,8 @@
 
           choices.attr('ng-repeat', RepeatParser.getNgRepeatExpression($select.parserResult.itemName, '$select.items', $select.parserResult.trackByExp, groupByExp))
               .attr('ng-if', '$select.open') //Prevent unnecessary watches when dropdown is closed
-              .attr('ng-mouseenter', '$select.setActiveItem('+$select.parserResult.itemName +')')
+              // change ng-mouseenter to ng-mouseover because 'mouseenter' event does not bubble and cannot be captured by parent node
+              .attr('ng-mouseover', '$select.setActiveItem('+$select.parserResult.itemName +')')
               .attr('ng-click', '$select.select(' + $select.parserResult.itemName + ',false,$event)');
 
           var rowsInner = element.querySelectorAll('.ui-select-choices-row-inner');
